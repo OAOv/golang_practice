@@ -1,0 +1,7 @@
+docker 建構mysql&phpmyadmin image
+https://exfast.me/2019/04/docker-using-containers-to-build-mysql-with-phpmyadmin/
+
+- mysql
+docker run --name mysql57 -d -p 3306:3306 --env MYSQL_ROOT_PASSWORD=0000 mysql:5.7
+- phpmyadmin
+docker run --name phpmyadmin -d --link mysql57:db -p 8080:80 phpmyadmin/phpmyadmin
