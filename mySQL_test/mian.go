@@ -25,7 +25,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	name, err2 := r.URL.Query()["name"]
 	age, err3 := r.URL.Query()["age"]
 	if !err1 || !err2 || !err3 {
-		fmt.Fprintf(w, "error input!")
+		errorInput()
 		return
 	}
 	e := &event{ID[0], name[0], age[0]}
@@ -41,9 +41,28 @@ func readAllHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func readHandler(w http.ResponseWriter, r *http.Request) {
+	ID, err := r.URL.Query()["ID"]
+	if !err {
+		errorInput()
+		return
+	}
+	for _, value := range allEvents {
+		if value.ID == ID[0] {
+			value, _ := json.Marshal(value)
+			fmt.Fprintf(w, string(value))
+		}
+	}
+}
+
+func errorInput() {
+	fmt.Printf("error input!")
+}
+
 func main() {
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/create/", createHandler)
+	http.HandleFunc("/read/", readHandler)
 	http.HandleFunc("/readAll/", readAllHandler)
 	log.Fatal(http.ListenAndServe(":8180", nil))
 }
