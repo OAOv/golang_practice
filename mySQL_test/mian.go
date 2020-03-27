@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type Event struct {
+type User struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Age  string `json:"age"`
@@ -20,10 +20,10 @@ type Event struct {
 var db *sql.DB
 var err error
 
-func getEvents(w http.ResponseWriter, r *http.Request) {
+func getUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var events []Event
+	var users []User
 
 	result, err := db.Query("SELECT * FROM user")
 	if err != nil {
@@ -33,22 +33,23 @@ func getEvents(w http.ResponseWriter, r *http.Request) {
 	defer result.Close()
 
 	for result.Next() {
-		var event Event
-		err := result.Scan(&event.ID, &event.Name, &event.Age)
+		var user User
+		err := result.Scan(&user.ID, &user.Name, &user.Age)
 		if err != nil {
 			panic(err.Error())
 		}
-		events = append(events, event)
+		users = append(users, user)
 	}
 
-	json.NewEncoder(w).Encode(events)
+	json.NewEncoder(w).Encode(users)
 }
 
-func createEvent(w http.ResponseWriter, r *http.Request) {
+func createUser(w http.ResponseWriter, r *http.Request) {
 	stmt, err := db.Prepare("INSERT INTO user (name, age) VALUES (?, ?)")
 	if err != nil {
 		panic(err.Error())
 	}
+	defer stmt.Close()
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -65,10 +66,10 @@ func createEvent(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	fmt.Fprintf(w, "New event was created.")
+	fmt.Fprintf(w, "New User was created.")
 }
 
-func getEvent(w http.ResponseWriter, r *http.Request) {
+func getUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
@@ -79,21 +80,73 @@ func getEvent(w http.ResponseWriter, r *http.Request) {
 
 	defer result.Close()
 
-	var event Event
+	var user User
 	for result.Next() {
-		err := result.Scan(&event.ID, &event.Name, &event.Age)
+		err := result.Scan(&user.ID, &user.Name, &user.Age)
 		if err != nil {
 			panic(err.Error())
 		}
 	}
 
-	json.NewEncoder(w).Encode(event)
+	json.NewEncoder(w).Encode(user)
 }
 
-func updateEvent(w http.ResponseWriter, r *http.Request) {
+func updateUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	stmt, err := db.Prepare("UPDATE user SET name  = ?, age = ? WHERE id = ?")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer stmt.Close()
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	keyVal := make(map[string]string)
+	json.Unmarshal(body, &keyVal)
+	newName, existsName := keyVal["name"]
+	newAge, existsAge := keyVal["age"]
+
+	if !existsName {
+		stmt, err = db.Prepare("UPDATE user SET age = ? WHERE id = ?")
+		_, err = stmt.Exec(newAge, params["id"])
+		if err != nil {
+			panic(err.Error())
+		}
+	} else if !existsAge {
+		stmt, err = db.Prepare("UPDATE user SET name = ? WHERE id = ?")
+
+		_, err = stmt.Exec(newName, params["id"])
+		if err != nil {
+			panic(err.Error())
+		}
+	} else {
+		_, err = stmt.Exec(newName, newAge, params["id"])
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+	fmt.Fprintf(w, "User with ID = %s was updated", params["id"])
 }
 
-func deleteEvent(w http.ResponseWriter, r *http.Request) {
+func deleteUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	stmt, err := db.Prepare("DELETE FROM user WHERE id = ?")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(params["id"])
+	if err != nil {
+		panic(err.Error())
+	}
+
+	fmt.Fprintf(w, "User with ID = %s was deleted", params["id"])
 }
 
 func main() {
@@ -105,11 +158,11 @@ func main() {
 	defer db.Close()
 
 	router := mux.NewRouter()
-	router.HandleFunc("/events", getEvents).Methods("GET")
-	router.HandleFunc("/events", createEvent).Methods("POST")
-	router.HandleFunc("/events/{id}", getEvent).Methods("GET")
-	router.HandleFunc("/events/{id}", updateEvent).Methods("PUT")
-	router.HandleFunc("/events/{id}", deleteEvent).Methods("DELETE")
+	router.HandleFunc("/users", getUsers).Methods("GET")
+	router.HandleFunc("/users", createUser).Methods("POST")
+	router.HandleFunc("/users/{id}", getUser).Methods("GET")
+	router.HandleFunc("/users/{id}", updateUser).Methods("PATCH")
+	router.HandleFunc("/users/{id}", deleteUser).Methods("DELETE")
 
 	http.ListenAndServe(":8000", router)
 }
