@@ -1,68 +1,75 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
-	//_ "github.com/go-sql-driver/mysql"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/mux"
 )
 
-type event struct {
-	ID   string `json:"ID"`
-	Name string `json:"Name"`
-	Age  string `json:"Age"`
+type Event struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Age  string `json:"age"`
 }
 
-var allEvents []event
+var db *sql.DB
+var err error
 
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hi, %s", r.URL.Path[1:])
-}
+func getEvents(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
-func createHandler(w http.ResponseWriter, r *http.Request) {
-	ID, err1 := r.URL.Query()["ID"]
-	name, err2 := r.URL.Query()["name"]
-	age, err3 := r.URL.Query()["age"]
-	if !err1 || !err2 || !err3 {
-		errorInput()
-		return
+	var events []Event
+
+	result, err := db.Query("SELECT * FROM user")
+	if err != nil {
+		panic(err.Error())
 	}
-	e := &event{ID[0], name[0], age[0]}
-	allEvents = append(allEvents, *e)
-	e_json, _ := json.Marshal(e)
-	fmt.Fprintf(w, string(e_json))
-}
 
-func readAllHandler(w http.ResponseWriter, r *http.Request) {
-	for _, value := range allEvents {
-		value, _ := json.Marshal(value)
-		fmt.Fprintf(w, string(value))
-	}
-}
+	defer result.Close()
 
-func readHandler(w http.ResponseWriter, r *http.Request) {
-	ID, err := r.URL.Query()["ID"]
-	if !err {
-		errorInput()
-		return
-	}
-	for _, value := range allEvents {
-		if value.ID == ID[0] {
-			value, _ := json.Marshal(value)
-			fmt.Fprintf(w, string(value))
+	for result.Next() {
+		var event Event
+		err := result.Scan(&event.ID, &event.Name, &event.Age)
+		if err != nil {
+			panic(err.Error())
 		}
+		events = append(events, event)
 	}
+
+	json.NewEncoder(w).Encode(events)
 }
 
-func errorInput() {
-	fmt.Printf("error input!")
+func createEvent(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+}
+
+func getEvent(w http.ResponseWriter, r *http.Request) {
+}
+
+func updateEvent(w http.ResponseWriter, r *http.Request) {
+}
+
+func deleteEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/", homeHandler)
-	http.HandleFunc("/create/", createHandler)
-	http.HandleFunc("/read/", readHandler)
-	http.HandleFunc("/readAll/", readAllHandler)
-	log.Fatal(http.ListenAndServe(":8180", nil))
+	db, err = sql.Open("mysql", "root:0000@tcp(127.0.0.1:3306)/test")
+
+	if err != nil {
+		panic(err.Error())
+	}
+	defer db.Close()
+
+	router := mux.NewRouter()
+	router.HandleFunc("/events", getEvents).Methods("GET")
+	router.HandleFunc("/events", createEvent).Methods("POST")
+	router.HandleFunc("/events/{id}", getEvent).Methods("GET")
+	router.HandleFunc("/events/{id}", updateEvent).Methods("PUT")
+	router.HandleFunc("/events/{id}", deleteEvent).Methods("DELETE")
+
+	http.ListenAndServe(":8000", router)
 }

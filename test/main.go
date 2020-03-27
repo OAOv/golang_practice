@@ -1,86 +1,68 @@
 package main
 
 import (
-	"html/template"
-	"io/ioutil"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
-	"regexp"
+	//_ "github.com/go-sql-driver/mysql"
 )
 
-type Page struct {
-	Title string
-	Body  []byte
+type event struct {
+	ID   string `json:"ID"`
+	Name string `json:"Name"`
+	Age  string `json:"Age"`
 }
 
-func (p *Page) save() error {
-	filename := p.Title + ".txt"
-	return ioutil.WriteFile(filename, p.Body, 0600)
+var allEvents []event
+
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hi, %s", r.URL.Path[1:])
 }
 
-func loadPage(title string) (*Page, error) {
-	filename := title + ".txt"
-	body, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return &Page{Title: title, Body: body}, nil
-}
-
-func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
-	if err != nil {
-		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
+func createHandler(w http.ResponseWriter, r *http.Request) {
+	ID, err1 := r.URL.Query()["ID"]
+	name, err2 := r.URL.Query()["name"]
+	age, err3 := r.URL.Query()["age"]
+	if !err1 || !err2 || !err3 {
+		errorInput()
 		return
 	}
-	renderTemplate(w, "view", p)
+	e := &event{ID[0], name[0], age[0]}
+	allEvents = append(allEvents, *e)
+	e_json, _ := json.Marshal(e)
+	fmt.Fprintf(w, string(e_json))
 }
 
-func editHandler(w http.ResponseWriter, r *http.Request, title string) {
-	p, err := loadPage(title)
-	if err != nil {
-		p = &Page{Title: title}
+func readAllHandler(w http.ResponseWriter, r *http.Request) {
+	for _, value := range allEvents {
+		value, _ := json.Marshal(value)
+		fmt.Fprintf(w, string(value))
 	}
-	renderTemplate(w, "edit", p)
 }
 
-func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
-	body := r.FormValue("body")
-	p := &Page{Title: title, Body: []byte(body)}
-	err := p.save()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+func readHandler(w http.ResponseWriter, r *http.Request) {
+	ID, err := r.URL.Query()["ID"]
+	if !err {
+		errorInput()
 		return
 	}
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
-}
-
-var templates = template.Must(template.ParseFiles("edit.html", "view.html"))
-
-func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
-	err := templates.ExecuteTemplate(w, tmpl+".html", p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
-
-func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		m := validPath.FindStringSubmatch(r.URL.Path)
-		if m == nil {
-			http.NotFound(w, r)
-			return
+	for _, value := range allEvents {
+		if value.ID == ID[0] {
+			value, _ := json.Marshal(value)
+			fmt.Fprintf(w, string(value))
 		}
-		fn(w, r, m[2])
 	}
+}
+
+func errorInput() {
+	fmt.Printf("error input!")
 }
 
 func main() {
-	http.HandleFunc("/view/", makeHandler(viewHandler))
-	http.HandleFunc("/edit/", makeHandler(editHandler))
-	http.HandleFunc("/save/", makeHandler(saveHandler))
-
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/create/", createHandler)
+	http.HandleFunc("/read/", readHandler)
+	http.HandleFunc("/readAll/", readAllHandler)
+	log.Fatal(http.ListenAndServe(":8180", nil))
 }
