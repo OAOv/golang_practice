@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -43,11 +45,49 @@ func getEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func createEvent(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	stmt, err := db.Prepare("INSERT INTO user (name, age) VALUES (?, ?)")
+	if err != nil {
+		panic(err.Error())
+	}
 
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	keyVal := make(map[string]string)
+	json.Unmarshal(body, &keyVal)
+	name := keyVal["name"]
+	age := keyVal["age"]
+
+	_, err = stmt.Exec(name, age)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	fmt.Fprintf(w, "New event was created.")
 }
 
 func getEvent(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	params := mux.Vars(r)
+
+	result, err := db.Query("SELECT * FROM user WHERE id = ?", params["id"])
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer result.Close()
+
+	var event Event
+	for result.Next() {
+		err := result.Scan(&event.ID, &event.Name, &event.Age)
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+
+	json.NewEncoder(w).Encode(event)
 }
 
 func updateEvent(w http.ResponseWriter, r *http.Request) {
