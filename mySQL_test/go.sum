@@ -1,3 +1,5 @@
+github.com/OAOv/restful_CRUD v0.0.0-20200330034704-0e9510a86ef4 h1:DH0Cn0c046PdVivIY/8IZre5RZHf+6XgDb9ERQ7dD/w=
+github.com/OAOv/restful_CRUD v0.0.0-20200330034704-0e9510a86ef4/go.mod h1:ZNxJRtyOkGYp2pxI2uEK2jJ+tB3KSKHxUYaVODF3cYI=
 github.com/go-sql-driver/mysql v1.5.0 h1:ozyZYNQW3x3HtqT1jira07DN2PArx2v7/mN66gGcHOs=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/gorilla/mux v1.7.4 h1:VuZ8uybHlWmqV03+zRzdwKL4tUnIp1MAQtp1mIFE1bc=
